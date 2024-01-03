@@ -99,6 +99,7 @@ def removeOutliersFromWallPCD(pointCloud):
     return filtered
 
 def convert3DtoImg(pointCloud):
+    coord_info = []
     grid = []
     max_points = 0
     c2Min = np.asarray(pointCloud.get_min_bound())
@@ -132,7 +133,13 @@ def convert3DtoImg(pointCloud):
                 depthImg[i][j] = 255;
             else :
                 depthImg[i][j] = 0;
-    return depthImg
+
+    coord_info.append(ax1Min)
+    coord_info.append(ax1Max)
+    coord_info.append(ax2Min)
+    coord_info.append(ax2Max)
+
+    return depthImg, coord_info
 
 def clusteringData(data):
     
@@ -166,6 +173,24 @@ def statisticalRemovalOutlier(pointCloud, neighborNums, ratio):
     
     return cl
 
+def getLineCoord(lines, coord_infos):
+    database = []
+    print("Coords info : ", coord_infos)
+
+    with open("Output/linePixel", 'w') as f: 
+        for line in lines:
+            f.write(str(line) +'\n')
+
+    with open("Output/lineCoordinate_1", 'w') as f:
+        for line in lines:
+            x1,y1,x2,y2 = line[0]
+            x_start =  x1*step_size + step_size/2.0 + coord_infos[0]
+            y_start =  y1*step_size + step_size/2.0 + coord_infos[2]
+            x_end = x2*step_size + step_size/2.0 + coord_infos[0]
+            y_end = y2*step_size + step_size/2.0 + coord_infos[2]
+            f.write(str(x_start) + " " + str(y_start) + " : " + str(x_end) + " " + str(y_end) +'\n')
+
+
 def houghLineDetection(image):
     rgb_image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
     blurred_image = cv2.GaussianBlur(image, (5, 5), 0)
@@ -174,11 +199,13 @@ def houghLineDetection(image):
     
     for line in lines:
         x1,y1,x2,y2 = line[0]
-        cv2.line(rgb_image,(x1,y1),(x2,y2),(0,255,0),2)
+        cv2.line(rgb_image,(x1,y1),(x2,y2),(0,255,0),1)
     
-    cv2.imwrite('houghlines5.jpg', rgb_image)
+    cv2.imwrite('Output/houghlines6.jpg', rgb_image)
+    return lines
 
 def main():
+    coord_info = []
     pcd = o3d.io.read_point_cloud("Input/Cropted_Point_index.pcd")
     wall_points =  removeFloorCeilingPlanes(pcd)
     wall_points = downSamplingVoxel(wall_points, 0.01)
@@ -189,12 +216,13 @@ def main():
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(output)
 
-    depthImg = convert3DtoImg(point_cloud)
-    houghLineDetection(depthImg)
-
-
-# pcd = o3d.io.read_point_cloud("Input/data.pcd")
+    depthImg, coord_info = convert3DtoImg(wall_points)
+    lines = houghLineDetection(depthImg)
+    getLineCoord(lines, coord_infos=coord_info)
+# pcd = o3d.io.read_point_cloud("Input/Cropted_Point_index.pcd")
 # print(pcd)
+# point_cloud = downSamplingVoxel(pcd, 0.01)
+# point_cloud = removeFloorCeilingPlanes(point_cloud)
 # output = clusteringData(np.asarray(pcd.points))
     
 # point_cloud = o3d.geometry.PointCloud()
